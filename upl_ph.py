@@ -2,14 +2,18 @@
 # -*- coding= utf-8 -*-
 
 import requests
-import re
+#import re
 import time
-import random
+#import random
 import sys
+import cookielib
 
 from lib.upload_lib import *
 from lib.single import *
 import logging as log
+
+global piece_size
+piece_size = 209715200
 
 class StreamToLogger(object):
     """
@@ -73,12 +77,17 @@ def get_proxy():
         
 def create_session(login, password, proxy):
     s = requests.Session()
-
+    cj = cookielib.MozillaCookieJar('cookies.txt')
+    cj.load()
+    s.cookies = cj
+    return s
+    '''
     p_data = proxy.split(':')
 
-    proxy = 'http://%s:%s@%s:%s/' % (p_data[2], p_data[3], p_data[0], p_data[1])
+    proxy = 'http://%s:%s/' % (p_data[0], p_data[1])
     s.proxies = {'http':  proxy,
                     'https': proxy}
+    
     
     log.info("{}: try to login into account {}:{}".format(name,  login,  password))
 
@@ -119,13 +128,13 @@ def create_session(login, password, proxy):
         return s
     else:
         return 'Bad acc'
-
+    '''
     
 def get_upload_param():
     url = 'http://www.pornhub.com/upload/get_upload_file_params'
 
     data = {}
-    resp = s.post(url, data)
+    resp = s.get(url)
     log.debug("{}: {}".format(name, resp.text))
 
     if 'error' in resp.text:
@@ -151,17 +160,19 @@ def get_file_data(filename):
 def upload_video(filename):
     log.info("{}: try to upload {}".format(name, filename ))
     url, formHash, viewkey = get_upload_param()
-    
-    all_data = get_file_data(filename)
-    all_length = len(all_data)
+    file = open(os.path.join(basedir, videos_folder, name, filename), 'rb')
+    #all_data = get_file_data(filename)
+    all_length = os.path.getsize(os.path.join(basedir, videos_folder, name, filename))
     finish_step = -1
-
+    start_step = 0
     while True:
-        filedata, start_step, finish_step = get_next_data(finish_step, 11534335,
-                                                          all_data, all_length)
-        
+
+        #filedata, start_step, finish_step = get_next_data(finish_step, 11534335,all_data, all_length)
+        filedata = file.read(piece_size)
+        finish_step += len(filedata)
         s.headers['Content-Disposition'] = 'attachment; filename="%s"' % filename
         s.headers['Content-Range'] = 'bytes %s-%s/%s' % (start_step, finish_step, all_length)
+        start_step += len(filedata)
         s.headers['Content-Type'] = 'multipart/form-data; boundary=---------------------------30531190830488'
         s.headers['Host'] = 'www.pornhub.com'
         s.headers['Referer'] = 'http://www.pornhub.com/upload/videodata'
@@ -265,7 +276,7 @@ def delete_video_from_folder(filename):
 
 def main():
     videos = get_videos()
-    if len(videos) <5:
+    if len(videos)  >5:
         log.error("{}: no video for uploading, upload skipped".format(name))
         exit()
 
@@ -289,7 +300,7 @@ def main():
     
     login = user.split(':')[0]
     password  = user.split(':')[1]
-    
+
     global s
     s = create_session(login,  password, proxy)
     
@@ -306,14 +317,14 @@ def main():
         log.debug("{}: upload video {}".format(name, video))
 
         upload_video(video)
-        delete_video_from_folder(video)
+        #delete_video_from_folder(video)
         time.sleep(upload_packet_timeout)
         
     delete_user_from_file(users,  user)
 
 
 if __name__ == "__main__":
-    soo_lonely = SingleInstance() 
+    soo_lonely = SingleInstance()
     main()
  # защита от запуска второй копии скрипта
     

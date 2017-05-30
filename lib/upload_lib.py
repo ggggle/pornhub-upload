@@ -24,7 +24,8 @@ upload_timeout = 3600
 
 def make_title(filename):
     title = filename.split('.')[0]
-    title = re.sub('[\d_-]', ' ', title)
+    #title = re.sub('[\d_-]', ' ', title)
+    return title
     return title.strip()
     
     # функция получает filename и возвращает чистое название
